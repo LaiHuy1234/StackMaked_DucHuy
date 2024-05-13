@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using Unity.Mathematics;
+using UnityEngine.SocialPlatforms.Impl;
 
 public class PlayerController : MonoBehaviour
 {
@@ -12,12 +13,14 @@ public class PlayerController : MonoBehaviour
     [SerializeField] public Vector2 startPos;
     [SerializeField] public Vector2 endPos;
     public Vector2 swipeDirection;
+    private Stack<Transform> m_brickStack = new Stack<Transform>();
+    public List<GameObject> Bricks = new List<GameObject>();
     [SerializeField] private GameObject brickPrefab;
     [SerializeField] private GameObject player;
     [SerializeField] private GameObject brickOnBridge;
 
 
-    //private void Awake()
+    //private void awake()
     //{
     //    instance = this;
     //}
@@ -43,7 +46,7 @@ public class PlayerController : MonoBehaviour
         // Convert từ Vector3 => Vector2
         Vector3 vectorDirection = GetMoveDirectionBySwipeDirection(m_direction);
         // Vẽ tia RayCast
-        Ray ray = new Ray(transform.position + vectorDirection * 0.6f, Vector3.down);
+        Ray ray = new Ray(transform.position + vectorDirection * 0.5f, Vector3.down);
         RaycastHit hit;
         int countBrick = 0;
         int countUnBrick = 0;
@@ -53,7 +56,6 @@ public class PlayerController : MonoBehaviour
             Debug.DrawRay(transform.position + vectorDirection, Vector3.up * 5f, Color.red);
             if (hit.collider.CompareTag(GameTag.Brick.ToString()))
             {
-                Debug.Log(1);
                 countBrick++;
             }
             else if (hit.collider.CompareTag(GameTag.UnBrick.ToString()))
@@ -62,13 +64,14 @@ public class PlayerController : MonoBehaviour
             }
             else if (hit.collider.CompareTag(GameTag.Finish.ToString()))
             {
+                Debug.Log(1);
                 countPath++;
             }
-            else if (hit.collider.CompareTag(GameTag.Destination.ToString()))
-            {
-                //RemoveBrick();
-                Debug.Log("win");
-            }
+            //else if (hit.collider.comparetag(gametag.destination.tostring()))
+            //{
+            //    //removebrick();
+            //    debug.log("win");
+            //}
         }
         //Hàm Di chuyển nhân vật
         m_targetPos = transform.position + (countBrick + countUnBrick + countPath) * vectorDirection;
@@ -94,10 +97,17 @@ public class PlayerController : MonoBehaviour
         Destination,
         Slow
     }
-    void Update()
+    private void Update()
     {
         GetTouchEvent();
         Move();
+        if (CheckBrick())
+        {
+            Debug.Log("da chay");
+            player.gameObject.transform.GetChild(0).gameObject.tag = GameTag.Player.ToString();
+            AddBrick();
+        }
+
     }
 
     private void ConvertSwipeDirection()
@@ -128,6 +138,42 @@ public class PlayerController : MonoBehaviour
         {
             m_direction = Direction.None;
         }
+    }
+    private bool CheckBrick()
+    {
+        //Hàm Convert
+        Vector3 vectorDirection = GetMoveDirectionBySwipeDirection(m_direction);
+        //Bắn 1 tia Raycast check
+        Ray ray = new Ray(transform.position - vectorDirection, Vector3.down);
+        RaycastHit hit;
+        if (Physics.Raycast(ray, out hit))
+        {
+            Debug.DrawRay(transform.position - vectorDirection, Vector3.up, Color.blue);
+            if (hit.collider.CompareTag(GameTag.Brick.ToString()))
+            {
+                Debug.Log("gach");
+                hit.collider.gameObject.SetActive(false);
+                //score++;
+                //UIManager.Instance().UpdateScore();
+                return true;
+            }
+        }
+        return false;
+    }
+    private void AddBrick()
+    {
+        //goi ra obj con cua prefab brick 
+        Transform brickChildPath = brickPrefab.gameObject.transform.GetChild(0);
+        //lay ra anim
+        GameObject playerAnim = player.transform.GetChild(0).gameObject;
+        playerAnim.transform.position += Vector3.up * 0.3f;
+        Debug.Log("chua sinh ");
+        Transform brickObject = Instantiate(brickChildPath, playerAnim.transform.position + Vector3.down * 0.5f,
+            brickChildPath.transform.rotation);
+        Debug.Log("da sinh ra");
+        m_brickStack.Push(brickObject);
+        brickObject.SetParent(player.transform);
+        brickChildPath.gameObject.SetActive(true);
     }
 
     private Vector3 GetMoveDirectionBySwipeDirection(Direction swipeDirection)
